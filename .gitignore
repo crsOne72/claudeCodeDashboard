@@ -19,3 +19,7 @@ Thumbs.db
 # Environment
 .env
 .env.local
+
+# Private files
+claude_code_dashboard_konzept.docx
+focus.ps1
