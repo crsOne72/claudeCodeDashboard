@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { useAppStore } from "../../store/appStore";
 import { CostBadge } from "../shared/CostBadge";
 import { ModelBadge } from "../shared/ModelBadge";
-import { formatCost, formatTokens } from "../../lib/costCalc";
+import { formatCost, formatTokens, getPricing } from "../../lib/costCalc";
 import { formatDateTime } from "../../lib/formatTime";
 import { TokenTimelineChart } from "./TokenTimelineChart";
 import { ToolUsageBreakdown } from "./ToolUsageBreakdown";
@@ -32,6 +32,10 @@ export function SessionDetail() {
     let outputTokens = 0;
     let cacheWrite = 0;
     let cacheRead = 0;
+    let costInput = 0;
+    let costOutput = 0;
+    let costCacheWrite = 0;
+    let costCacheRead = 0;
     let messageCount = 0;
     const toolCounts: Record<string, number> = {};
     const models = new Set<string>();
@@ -39,10 +43,15 @@ export function SessionDetail() {
     for (const e of entries) {
       totalCost += e.costUsd;
       if (e.usage) {
+        const pricing = getPricing(e.model ?? "claude-sonnet-4");
         inputTokens += e.usage.inputTokens;
         outputTokens += e.usage.outputTokens;
         cacheWrite += e.usage.cacheCreationInputTokens;
         cacheRead += e.usage.cacheReadInputTokens;
+        costInput += (e.usage.inputTokens / 1_000_000) * pricing.input;
+        costOutput += (e.usage.outputTokens / 1_000_000) * pricing.output;
+        costCacheWrite += (e.usage.cacheCreationInputTokens / 1_000_000) * pricing.cacheWrite;
+        costCacheRead += (e.usage.cacheReadInputTokens / 1_000_000) * pricing.cacheRead;
       }
       if (e.entryType === "user" || e.entryType === "assistant") {
         messageCount++;
@@ -53,7 +62,7 @@ export function SessionDetail() {
       if (e.model) models.add(e.model);
     }
 
-    return { totalCost, inputTokens, outputTokens, cacheWrite, cacheRead, messageCount, toolCounts, models: [...models] };
+    return { totalCost, inputTokens, outputTokens, cacheWrite, cacheRead, costInput, costOutput, costCacheWrite, costCacheRead, messageCount, toolCounts, models: [...models] };
   }, [entries]);
 
   return (
@@ -104,14 +113,14 @@ export function SessionDetail() {
             </div>
           </div>
 
-          {/* Cost breakdown by model */}
+          {/* Cost breakdown by token type, using per-entry model pricing */}
           <div className="bg-card border border-border rounded-lg p-4">
             <h3 className="text-sm font-medium text-muted-foreground mb-4">Cost Breakdown</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <CostItem label="Input" cost={(stats.inputTokens / 1e6) * 3} />
-              <CostItem label="Output" cost={(stats.outputTokens / 1e6) * 15} />
-              <CostItem label="Cache Write" cost={(stats.cacheWrite / 1e6) * 3.75} />
-              <CostItem label="Cache Read" cost={(stats.cacheRead / 1e6) * 0.3} />
+              <CostItem label="Input" cost={stats.costInput} />
+              <CostItem label="Output" cost={stats.costOutput} />
+              <CostItem label="Cache Write" cost={stats.costCacheWrite} />
+              <CostItem label="Cache Read" cost={stats.costCacheRead} />
             </div>
           </div>
 

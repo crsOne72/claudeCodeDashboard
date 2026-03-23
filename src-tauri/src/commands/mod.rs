@@ -27,11 +27,13 @@ pub async fn get_session_entries(
     project_id: String,
 ) -> Result<Vec<JournalEntry>, String> {
     let projects_dir = parser::get_claude_projects_dir().map_err(|e| e.to_string())?;
-    let session_dir = projects_dir.join(&project_id).join(&session_id);
 
-    let jsonl_path = session_dir.join(format!("{}.jsonl", session_id));
+    // JSONL files live at: ~/.claude/projects/{project_id}/{session_id}.jsonl
+    let jsonl_path = projects_dir
+        .join(&project_id)
+        .join(format!("{}.jsonl", session_id));
+
     if !jsonl_path.exists() {
-        // try looking for any .jsonl file in the session dir
         return Ok(vec![]);
     }
 
