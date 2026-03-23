@@ -1,0 +1,83 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    permissions:
+      contents: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'macos-latest'
+            args: '--target aarch64-apple-darwin'
+          - platform: 'macos-latest'
+            args: '--target x86_64-apple-darwin'
+          - platform: 'ubuntu-22.04'
+            args: ''
+          - platform: 'windows-latest'
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Install Linux system dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Build and release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Claude Code Dashboard ${{ github.ref_name }}'
+          releaseBody: |
+            ## Claude Code Dashboard ${{ github.ref_name }}
+
+            Visualisiere deine Claude Code Kosten — nach Session, Projekt und Modell.
+
+            ### Downloads
+            | Platform | Datei |
+            |----------|-------|
+            | Windows 10/11 | `Claude Code Dashboard_*_x64-setup.exe` |
+            | macOS (Apple Silicon) | `Claude Code Dashboard_*_aarch64.dmg` |
+            | macOS (Intel) | `Claude Code Dashboard_*_x64.dmg` |
+            | Linux | `claude-code-dashboard_*_amd64.AppImage` |
+
+            ### Installation Windows
+            1. `.exe` herunterladen
+            2. Falls SmartScreen-Warnung: "Weitere Informationen" → "Trotzdem ausführen"
+            3. Installer durchlaufen lassen
+
+            ### Voraussetzungen
+            Claude Code muss installiert sein — die App liest aus `~/.claude/projects/`
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
